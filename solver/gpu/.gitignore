@@ -1,0 +1,5 @@
+.selftest_ok
+progress.json
+progress.json.tmp
+FOUND.txt
+__pycache__/
