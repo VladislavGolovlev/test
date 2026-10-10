@@ -140,3 +140,107 @@ positional key the article deliberately never publishes ("These should be
 written on a different page to remove any connection between the text and the
 numbers") — see `../FINDINGS.md`. Note the closing hint promises every
 **word**, never the numbers.
+
+---
+
+# `phone_gpu_search.py` — the phone-method search
+
+**This is now the better-motivated target.** See `../FINDINGS.md` §7–8.
+
+The article's "Story & phone number" method keeps its positional key off the
+page by design — *"These should be written on a different page to remove any
+connection between the text and the numbers"* — so the key is not recoverable
+from the article and brute-forcing the positions is the intended path. The
+closing hint fits exactly: it promises every **word**, never the numbers.
+
+The carrier is one of the two worked examples, the only purpose-written,
+seed-dense texts in the article (41% and 29% BIP39 words, versus 19% for the
+article's natural prose). The phone example is the prime suspect: densest, the
+method says it holds "true and decoy seed phrases", and its own published
+numbers decode to an *invalid* phrase, marking the published reading as a decoy.
+
+And the author's own tooling is BIP39, not Electrum: the GPS example, which he
+wrote himself, is a 12-word BIP39 mnemonic with a **valid checksum**. (The
+printed `witch collapse …` phrase is an Electrum-wordlist phrase, but GitHub
+code search finds it in 309 files — it is a stock sample he pasted, so it says
+nothing about his own wallet. That is why this tool, not the Electrum one, is
+the priority.)
+
+## Slices
+
+Positions are a greedy ascending read of the concatenated phone digits, so the
+12 positions' **total digit count** equals the digits of 2–3 phone numbers —
+verified on the published example (24 digits = two 12-digit numbers). That is
+the prune.
+
+```
+ #  carrier        slice                              combos     cksum-valid
+ 0  GPS example    3 phones (30-39 digits)         9,238,671         577,417
+ 1  GPS example    24 digits                     214,526,520      13,407,908
+ 2  GPS example    2 phones (20-26 digits)     1,208,613,315      75,538,332
+ 3  phone example  3 phones (30-39 digits)       958,995,275      59,937,205
+ 4  phone example  24 digits (as published)   26,640,902,470   1,665,056,404
+ 5  phone example  2 phones (20-26 digits)  117,873,413,580   7,367,088,349
+```
+
+Slice 0 has already been run to completion on CPU: 9,238,671 combinations,
+**no hit**. Slice 4 is the default and the most faithful to the published
+example.
+
+## How the work is split
+
+Enumerating 26.6 billion 12-subsets in Python is hopeless (~5 µs each is 37
+CPU-days), so the enumeration goes on the GPU too:
+
+| stage | where | what |
+|---|---|---|
+| kernel 1 | GPU | combinatorial unranking → 12 word indices → BIP39 checksum test; the 1/16 survivors are compacted with an atomic counter, so the host never sees the rest |
+| kernel 2 | GPU | PBKDF2-HMAC-SHA512(mnemonic, `mnemonic`, 2048). The HMAC key schedule is hoisted out of the loop, so each iteration is exactly 2 SHA-512 compressions |
+| CPU | host | BIP32 `m/44'/0'/0'/0/0` + secp256k1 + hash160, survivors only |
+
+**The CPU stage is usually the limiter**: that path needs 3 EC multiplies
+(~180 µs), so ~5.5k/s per core — roughly 88k/s on 16 cores, which puts slice 4
+at about 5–6 hours. `--bench` prints your real numbers for both stages; if the
+CPU figure is the smaller one, more cores or `--shard i/N` across machines is
+what helps.
+
+## Run
+
+```bash
+pip install pyopencl numpy coincurve
+
+python phone_gpu_search.py --selftest          # required; --run is refused without it
+python phone_gpu_search.py --list
+python phone_gpu_search.py --bench
+python phone_gpu_search.py --run --slice 4
+python phone_gpu_search.py --run --slice 4 --shard 0/4
+```
+
+Checkpointed atomically per profile to `phone_progress.json`; re-run the same
+command to resume. Hits go to `FOUND.txt` and are printed loudly.
+
+## Correctness
+
+`--selftest` was run here against a CPU OpenCL device (pocl) and passed:
+
+```
+known-good GPS reading reproduced   OK
+its BIP39 checksum is valid         OK
+kernel2 PBKDF2 vs hashlib           OK      <- byte-identical
+kernel2 on 16 random mnemonics      OK
+kernel1 unrank+checksum: gpu=1114 ref=1114 OK
+```
+
+Kernel 1 is checked against a pure-Python enumeration over 20,000 combinations
+(identical survivor sets), and kernel 2 against `hashlib.pbkdf2_hmac`. The
+CPU-side reference implementation of the same search is `../subset_phone.py`,
+whose enumerator independently reproduces the known-good GPS reading and whose
+task decomposition provably covers the exact expected combinatorial count — use
+it to cross-check any result.
+
+## Caveat worth knowing
+
+Both solvers filter on a valid BIP39 checksum, which assumes the author's seed
+is a well-formed mnemonic. He published a non-BIP39 phrase while calling it
+"BIP-39", so that assumption is not certain; dropping it multiplies every count
+above by 16.

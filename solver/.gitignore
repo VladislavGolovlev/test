@@ -1,2 +1,7 @@
 __pycache__/
 *.pyc
+subset.log
+FOUND.txt
+phone_progress.json
+phone_progress.json.tmp
+.phone_selftest_ok
