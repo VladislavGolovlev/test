@@ -117,7 +117,7 @@ compressed and uncompressed form.
 | Hidden number pair in the article | all 83 integers extracted in order | the **only** ascending 12-number sequences in the whole article are the two published example lists — there is no third, hidden one |
 | Image steganography | all 14 embedded images: EXIF (incl. GPS), XMP, trailing bytes after EOF, embedded strings | nothing; Medium re-encoded every image to WebP, so any pixel payload was destroyed at publication regardless |
 | Formatting "plain sight" channel | every `<em>`, `<strong>`, `<a>`, `<code>` span | no 12-word pattern |
-| Old Electrum v1, 402,949 candidates | published lists + contiguous windows + free decade enumeration at offsets 0–15, all carriers/tokenizations | see `elec.log` |
+| Old Electrum v1 | 402,949 candidates: published lists + contiguous windows + free decade enumeration at offsets 0–15, all carriers/tokenizations; each seed stretched (100k SHA256) and checked at 20 addresses (indices 0–4 x change 0/1 x compressed/uncompressed) plus the master key itself | **no match** (4,418 s) |
 
 ---
 
@@ -137,11 +137,11 @@ Two findings constrain the puzzle hard:
 
 So the likely situation is that the puzzle is **underdetermined as published**:
 the carrier words are present but the positional key is not, leaving a search
-space of C(582,12) ≈ 2.8×10²⁴ ordered selections. The strongest remaining
-avenue is Electrum v1 over structurally feasible carriers, which is what the
-remaining compute should go to — but note Electrum v1 key stretching costs
-100,000 SHA256 rounds (~44 ms/seed, ~90 seeds/s on 4 cores), so it cannot be
-brute-forced broadly.
+space of C(582,12) ≈ 2.8×10²⁴ ordered selections. The Electrum v1 avenue has now also been run over every structurally feasible
+carrier at story-start offsets (402,949 candidates, no match). Electrum v1 key
+stretching costs 100,000 SHA256 rounds (~44 ms/seed, ~90 seeds/s on 4 cores),
+so it cannot be brute-forced beyond that without a large compute budget: the
+remaining offsets across all carriers are ~10-50M candidates, i.e. days of CPU.
 
 **Before spending more compute, check whether the address still holds funds.**
 The article pledged to donate the balance to GiveDirectly if it was not claimed
