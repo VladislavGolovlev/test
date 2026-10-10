@@ -1,0 +1,8 @@
+
+=== GPS example | 3 phones (30-39 digits) ===
+    tokens=119 bip39=37 profiles=6 combos=9,238,671 (~577,417 checksum-valid)
+    parallel tasks=193
+    2,024/9,238,671 (0.02%) 2,102 combos/s eta 1.22 h hits=0
+    102,558/9,238,671 (1.11%) 2,074 combos/s eta 1.22 h hits=0
+    381,878/9,238,671 (4.13%) 4,423 combos/s eta 0.56 h hits=0
+    605,766/9,238,671 (6.56%) 5,447 combos/s eta 0.44 h hits=0

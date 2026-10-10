@@ -163,3 +163,77 @@ explorer, so it could not be checked here.
 | `elecgen.py` / `eleccheck.py` | Electrum candidate generation and address checking |
 
 All of it is reproducible: `python3 extract.py` then any of the solvers.
+
+---
+
+## 7. Correction and a stronger hypothesis (from a reader's comment)
+
+A commenter on the article asked what conversion links the article's two
+printed examples -- the hex private key
+`E9873D79…3AA33262` and the seed phrase `witch collapse practice feed shame
+open despair creek road again ice least` -- saying their own attempts gave
+different results.
+
+**Answer: there is no conversion.** Tested and refuted: Electrum v1
+`mnemonic_decode` (gives `25a39767960aafbdba67ad41f5657826`), the full v1
+stretch, stretching the phrase text itself, SHA256/SHA256d/SHA512 of the phrase
+in six spellings, PBKDF2/BIP39 seed halves and BIP32 master, and Electrum v2.
+The two examples are unrelated stock samples. GitHub code search finds that
+phrase in **309 files** (wallet placeholder text, docs, tutorials).
+
+### This corrects §3
+
+Because the phrase is a stock example the author pasted, its being
+Electrum-wordlist-only is **weak** evidence about his own tooling. §3 overstated
+that inference, and the Electrum v1 avenue is less well-motivated than it
+claimed (it remains untested at scale, hence `gpu/`, but it is no longer the
+leading hypothesis).
+
+### And it points the other way
+
+The evidence about the author's *own* tooling is the GPS example, which he
+constructed himself: it decodes to a 12-word BIP39 mnemonic with a **valid
+checksum** (1-in-16 by chance). So he used BIP39. Combined with §3's structural
+result -- that BIP39 is impossible in the article's *prose* because some decade
+windows hold no BIP39 word -- the carrier must be a **purpose-written** text.
+The only purpose-written texts are the two worked examples, and their BIP39
+density confirms it:
+
+| text | tokens | BIP39 words | density |
+|---|---|---|---|
+| phone example | 123 | 51 | **41%** |
+| GPS example | 119 | 37 | 31% |
+| Revolution story (natural prose) | 596 | 112 | 19% |
+
+The phone example is the prime suspect: it is the densest, the method states it
+contains "true and decoy seed phrases", and its own published numbers decode to
+an **invalid** phrase (`a` and `payment` are not BIP39) -- i.e. the published
+reading is a decoy.
+
+Critically, the phone method keeps its key off the page by design -- "These
+should be written on a different page to remove any connection between the text
+and the numbers" -- so brute-forcing the positions is the intended-difficulty
+path, and the hint's wording fits exactly: it promises every **word**, never
+the numbers.
+
+### The prune
+
+Positions are a greedy ascending read of the concatenated phone digits, so the
+12 positions' **total digit count** equals the digits of 2-3 phone numbers.
+Verified on the published example: `2,6,9,18,22,25,45,70,86,100,113,116` has
+digit-lengths `1,1,1,2,2,2,2,2,2,3,3,3` = 24 = two 12-digit numbers. Requiring
+a three-phone-number profile prunes the space **165x**.
+
+| carrier | slice | combos | checksum-valid | 4-core CPU |
+|---|---|---|---|---|
+| GPS example | 3 phones (30-39 digits) | 9,238,671 | 577,417 | ~0.6 h |
+| GPS example | 24 digits | 214,526,520 | 13,407,908 | ~1.2 h |
+| GPS example | 2 phones (20-26 digits) | 1,208,613,315 | 75,538,332 | ~6.8 h |
+| phone example | 3 phones (30-39 digits) | 958,995,275 | 59,937,205 | ~5.4 h |
+| phone example | 24 digits (as published) | 26,640,902,470 | 1,665,056,404 | ~150 h (GPU) |
+| phone example | 2 phones (20-26 digits) | 117,873,413,580 | 7,367,088,349 | ~896 h (GPU) |
+
+`subset_phone.py` implements this. Its enumerator is validated end-to-end: it
+reproduces the known-good GPS reading exactly (profile (1,9,2), 25 digits), and
+each slice's task decomposition is checked to cover exactly the expected
+combinatorial count.
